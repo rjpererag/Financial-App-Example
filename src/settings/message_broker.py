@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 
 
@@ -13,6 +13,6 @@ def default_callback_func(body) -> None:
 
 @dataclass
 class MessageBrokerSettings:
-    connection_params: ConnectionParams = ConnectionParams()
+    connection_params: ConnectionParams = field(default_factory=ConnectionParams)
     queue_name: str = "my_queue"
     callback_func: Callable = default_callback_func
