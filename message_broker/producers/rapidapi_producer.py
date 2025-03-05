@@ -1,14 +1,17 @@
 import pika
+from src.utils.logger import logger
+from src.settings.message_broker import MessageBrokerSettings
 
 
-def send_message(message):
-    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+def send_message(settings: MessageBrokerSettings,  message):
+    connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host=settings.connection_params.host))
     channel = connection.channel()
 
-    channel.queue_declare(queue="my_queue")
+    channel.queue_declare(queue=settings.queue_name)
     channel.basic_publish(exchange='',
-                          routing_key='my_queue',
+                          routing_key=settings.queue_name,
                           body=message)
 
-    print(f"Sent: {message}")
+    logger.info(f"Sent: {message}")
     connection.close()
