@@ -9,6 +9,7 @@ class ConnectionParams:
 
 def default_callback_func(body) -> None:
     print(body)
+    print("--------------------------------------------------------------------")
 
 
 @dataclass
