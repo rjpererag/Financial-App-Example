@@ -1,86 +1,77 @@
-from src.settings.db_authentication import DBCredentials
-from psycopg2 import pool, OperationalError
-from psycopg2.extensions import connection
+from .db_handler import DBHandler
+from ..settings.db_authentication import DBCredentials
+from ..utils.market_value_schema import db_schema
+
 from src.utils.logger import logger
 
 
-class DBHandler:
+class MarketDBHandler(DBHandler):
 
     def __init__(self, creds: DBCredentials) -> None:
+        super().__init__(creds=creds)
+        self.db_schema = db_schema
 
-        self.db_params = {
-            "dbname": creds.db_name,
-            "user": creds.db_user,
-            "password": creds.db_password,
-            "host": "localhost",
-            "port": creds.db_port
-        }
+    def __validate_table(self, table_name: str, target: str) -> bool:
+        if self.db_schema.get(table_name, {}).get("type") == target:
+            return True
+        return False
 
-        self.pool = self._create_connection_pool()
+    def __validate_value(self):
+        ...
 
-    def _create_connection_pool(self) -> pool.SimpleConnectionPool | None:
-        try:
-            conn = pool.SimpleConnectionPool(1, 10, **self.db_params)
-            logger.info("Connection pool created successfully")
+    def insert_in_auxiliary_table(self, table_name, params: tuple):
+        if self.__validate_table(table_name=table_name, target="auxiliary_table"):
+            if table_name != "company":
+                query = f"""
+                INSERT INTO {table_name} (name)
+                VALUES (%s)
+                ON CONFLICT (name) DO NOTHING;
+                """
+            else:
+                query = f"""
+                INSERT INTO company (short_name, long_name, display_name, symbol)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (symbol) DO NOTHING;
+                """
+            self.execute_query(query=query, params=params)
 
-        except OperationalError as e:
-            logger.info(f"Error creating connection pool, {str(e)}")
-            conn = None
+    def __handle_aux_table(self,
+                           table_name: str,
+                           comparator: str,
+                           comparator_value: str,
+                           params: tuple) -> str:
 
-        return conn
+        query = f"""
+        SELECT id 
+        FROM {table_name}
+        WHERE {comparator} = '{comparator_value}'
+        """
+        if _id := self.select(query, "fetchone"):
+            return _id[0]
 
-    def get_conn(self) -> connection | None:
-        if self.pool:
-            return self.pool.getconn()
+        else:  # TODO: Here we must insert the values
+            self.insert_in_auxiliary_table(table_name=table_name, params=params)
+            return self.__handle_aux_table(table_name=table_name,
+                                           comparator=comparator,
+                                           comparator_value=comparator_value,
+                                           params=params)
 
-        else:
-            logger.error(f"No pool to connect")
-            return None
+    def insert_in_market_value(self, data: dict):
+        # TODO: Here we must iterate over the aux tables to collect the IDs
+        # mapping = {name: {table_name: str, id: UUID}}
 
-    def select(self, query: str, *args):
-        if conn := self.get_conn():
-            with conn.cursor() as cursor:
-                cursor.execute(query)
+        # Step 1: Get IDs from auxiliary tables (company_id, region_id, market_state_id, exchange_id,
+        # market_id, currency_id, financial_currency_id)
 
-                if args:
-                    if args[0] == "fetchone":
-                        results = cursor.fetchone()
+        params = (data["short_name"], data["long_name"], data["display_name"], data["symbol"])
 
-                    elif args[0] == "fetchmany":
-                        results = cursor.fetchmany()
+        response = self.__handle_aux_table(table_name="company",
+                                           comparator="symbol",
+                                           comparator_value=data["symbol"],
+                                           params=params)
 
-                    else:
-                        results = cursor.fetchall()
-
-                conn.close()
-                return results
-
-    def execute_query(self, query, params=None):
-        """Executes a query within a transaction ensuring ACID compliance."""
-        conn = self.get_conn()
-        if not conn:
-            return
-
-        try:
-            with conn:
-                with conn.cursor() as cursor:
-                    cursor.execute(query, params)
-                    conn.commit()
-
-        except Exception as e:
-            conn.rollback()
-            logger.error(f"Error executing query: {e}. Query: {query}, Params: {params}")
-        finally:
-            conn.close()
-
-    def test_connection(self):
-        if conn := self.get_conn():
-            with conn.cursor() as cursor:
-                query = "SELECT version () ;"
-                cursor.execute(query)
-                results = cursor.fetchall()
-                self.pool.putconn()
-                print(results)
+        print(response)
 
 
-
+    def process_message(self):
+        ...
