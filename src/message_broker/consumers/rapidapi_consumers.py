@@ -5,21 +5,20 @@ from src.settings.db_authentication import DBCredentials
 from src.service.market_db_handler import MarketDBHandler
 
 
-def receive_message(settings: MessageBrokerSettings,
+def receive_message(broker_settings: MessageBrokerSettings,
                     db_settings: DBCredentials):
 
     connection = pika.BlockingConnection(pika.ConnectionParameters(
-        host=settings.connection_params.host))
+        host=broker_settings.connection_params.host))
     channel = connection.channel()
-    channel.queue_declare(queue=settings.queue_name)
+    channel.queue_declare(queue=broker_settings.queue_name)
 
     db_handler = MarketDBHandler(creds=db_settings)
 
     def callback(ch, method, properties, body):
-        message = settings.callback_func(body=body)
-        db_handler.process_message(msg=message)
+        broker_settings.callback_func(body=body, db_handler=db_handler)
 
-    channel.basic_consume(queue=settings.queue_name,
+    channel.basic_consume(queue=broker_settings.queue_name,
                           on_message_callback=callback,
                           auto_ack=True)
 
