@@ -1,6 +1,6 @@
 import pika
-from src.utils.logger import logger
-from src.settings.message_broker import MessageBrokerSettings
+from ...utils.logger import logger
+from ...settings.message_broker import MessageBrokerSettings
 
 
 def send_message(settings: MessageBrokerSettings,  message):

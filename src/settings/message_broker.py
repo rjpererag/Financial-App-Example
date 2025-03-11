@@ -7,7 +7,7 @@ class ConnectionParams:
     host: str = "localhost"
 
 
-def default_callback_func(body) -> None:
+def default_callback_func(body, **kwargs) -> None:
     print(body)
     print("--------------------------------------------------------------------")
 
