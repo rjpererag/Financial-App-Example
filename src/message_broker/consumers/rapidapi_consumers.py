@@ -1,8 +1,8 @@
 import pika
-from src.utils.logger import logger
-from src.settings.message_broker import MessageBrokerSettings
-from src.settings.db_authentication import DBCredentials
-from src.service.market_db_handler import MarketDBHandler
+from ...utils.logger import logger
+from ...settings.message_broker import MessageBrokerSettings
+from ...settings.db_authentication import DBCredentials
+from ...service.market_db_handler import MarketDBHandler
 
 
 def receive_message(broker_settings: MessageBrokerSettings,

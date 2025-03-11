@@ -1,5 +1,3 @@
-# TODO: Later work on making this dynamically using the db connection
-
 __tables_types = {
     "aux": "auxiliary_table",
     "primary": "primary"
