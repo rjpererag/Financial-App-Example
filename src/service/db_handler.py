@@ -39,21 +39,29 @@ class DBHandler:
 
     def select(self, query: str, *args):
         if conn := self.get_conn():
-            with conn.cursor() as cursor:
-                cursor.execute(query)
 
-                if args:
-                    if args[0] == "fetchone":
-                        results = cursor.fetchone()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(query)
 
-                    elif args[0] == "fetchmany":
-                        results = cursor.fetchmany()
+                    if args:
+                        if args[0] == "fetchone":
+                            results = cursor.fetchone()
 
-                    else:
-                        results = cursor.fetchall()
+                        elif args[0] == "fetchmany":
+                            results = cursor.fetchmany()
 
-                conn.close()
-                return results
+                        else:
+                            results = cursor.fetchall()
+
+                    conn.close()
+                    return results
+
+            except Exception as e:
+                logger.error(f"Error while selecting: {query}. {str(e)}")
+
+            finally:
+                self.pool.putconn(conn)
 
     def execute_query(self, query, params=None):
         """Executes a query within a transaction ensuring ACID compliance."""
@@ -62,16 +70,16 @@ class DBHandler:
             return
 
         try:
-            with conn:
-                with conn.cursor() as cursor:
-                    cursor.execute(query, params)
-                    conn.commit()
-
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            conn.commit()
+            cursor.close()
         except Exception as e:
             conn.rollback()
             logger.error(f"Error executing query: {e}. Query: {query}, Params: {params}")
         finally:
-            conn.close()
+            if conn:
+                self.pool.putconn(conn)
 
     def test_connection(self):
         if conn := self.get_conn():
