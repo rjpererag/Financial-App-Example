@@ -35,6 +35,29 @@ class MarketDBHandler(DBHandler):
                 """
             self.execute_query(query=query, params=params)
 
+    def insert_market_value(self, market_data: dict, auxiliary_ids: dict):
+
+        query = f"""
+            INSERT INTO market_value (company_id, region_id, market_state_id, exchange_id,
+            market_id, currency_id, price_hint, financial_currency_id, market_cap, book_value)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+
+        params = (
+            auxiliary_ids["company_id"],
+            auxiliary_ids["region_id"],
+            auxiliary_ids["market_state_id"],
+            auxiliary_ids["exchange_id"],
+            auxiliary_ids["market_id"],
+            auxiliary_ids["currency_id"],
+            market_data["price_hint"],
+            auxiliary_ids["currency_id"],
+            market_data["market_cap"],
+            market_data["book_value"]
+        )
+
+        self.execute_query(query=query, params=params)
+
     def __handle_aux_table(self,
                            table_name: str,
                            comparator: str,
@@ -56,22 +79,72 @@ class MarketDBHandler(DBHandler):
                                            comparator_value=comparator_value,
                                            params=params)
 
-    def insert_in_market_value(self, data: dict):
-        # TODO: Here we must iterate over the aux tables to collect the IDs
-        # mapping = {name: {table_name: str, id: UUID}}
+    @staticmethod
+    def __split_data(data: dict) -> tuple[dict, dict]:
 
-        # Step 1: Get IDs from auxiliary tables (company_id, region_id, market_state_id, exchange_id,
-        # market_id, currency_id, financial_currency_id)
+        # TODO: Move this to resources
+        auxiliary_tables_mapping = {
+            "company_id": {
+                "table_name": "company",
+                "comparator": "symbol",
+                "comparator_value": data["symbol"],
+                "params": (data["short_name"], data["long_name"], data["display_name"], data["symbol"])
+            },
+            "region_id": {
+                "table_name": "region",
+                "comparator": "name",
+                "comparator_value": data["region"],
+                "params": (data["region"],)
+            },
+            "market_state_id": {
+                "table_name": "market_state",
+                "comparator": "name",
+                "comparator_value": data["market_state"],
+                "params": (data["market_state"],)
+            },
+            "exchange_id": {
+                "table_name": "exchange",
+                "comparator": "name",
+                "comparator_value": data["exchange"],
+                "params": (data["exchange"],)
+            },
+            "market_id": {
+                "table_name": "market",
+                "comparator": "name",
+                "comparator_value": data["market"],
+                "params": (data["market"],)
+            },
+            "currency_id": {
+                "table_name": "currency",
+                "comparator": "name",
+                "comparator_value": data["currency"],
+                "params": (data["currency"],)
+            },
 
-        params = (data["short_name"], data["long_name"], data["display_name"], data["symbol"])
+        }
 
-        response = self.__handle_aux_table(table_name="company",
-                                           comparator="symbol",
-                                           comparator_value=data["symbol"],
-                                           params=params)
+        market_value_mapping = {
+            "price_hint": data["price_hint"],
+            "market_cap": data["market_cap"],
+            "book_value": data["book_value"]
+        }
 
-        print(response)
+        return auxiliary_tables_mapping, market_value_mapping
+
+    def insert_data(self, data: dict):
+
+        (auxiliary_mapping,
+         market_value_mapping) = self.__split_data(data=data)
+
+        auxiliary_ids = {
+            id_name: self.__handle_aux_table(**values) for id_name, values in auxiliary_mapping.items()
+        }
+
+        self.insert_market_value(market_data=market_value_mapping, auxiliary_ids=auxiliary_ids)
+
+    def process_message(self, msg: dict):
+        for key, value in msg.items():
+            if (data := value.get("data", {})) and (value.get("action") == "insert"):
+                self.insert_data(data=data)
 
 
-    def process_message(self):
-        ...
