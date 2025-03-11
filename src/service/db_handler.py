@@ -74,6 +74,7 @@ class DBHandler:
             cursor.execute(query, params)
             conn.commit()
             cursor.close()
+            logger.info("Successfully inserted")
         except Exception as e:
             conn.rollback()
             logger.error(f"Error executing query: {e}. Query: {query}, Params: {params}")

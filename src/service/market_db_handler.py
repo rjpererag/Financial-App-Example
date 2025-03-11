@@ -2,8 +2,6 @@ from .db_handler import DBHandler
 from ..settings.db_authentication import DBCredentials
 from ..utils.market_value_schema import db_schema
 
-from src.utils.logger import logger
-
 
 class MarketDBHandler(DBHandler):
 
@@ -72,7 +70,7 @@ class MarketDBHandler(DBHandler):
         if _id := self.select(query, "fetchone"):
             return _id[0]
 
-        else:  # TODO: Here we must insert the values
+        else:
             self.insert_in_auxiliary_table(table_name=table_name, params=params)
             return self.__handle_aux_table(table_name=table_name,
                                            comparator=comparator,
@@ -81,8 +79,6 @@ class MarketDBHandler(DBHandler):
 
     @staticmethod
     def __split_data(data: dict) -> tuple[dict, dict]:
-
-        # TODO: Move this to resources
         auxiliary_tables_mapping = {
             "company_id": {
                 "table_name": "company",
@@ -146,5 +142,3 @@ class MarketDBHandler(DBHandler):
         for key, value in msg.items():
             if (data := value.get("data", {})) and (value.get("action") == "insert"):
                 self.insert_data(data=data)
-
-
