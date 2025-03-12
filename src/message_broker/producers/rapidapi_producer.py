@@ -13,5 +13,5 @@ def send_message(settings: MessageBrokerSettings,  message):
                           routing_key=settings.queue_name,
                           body=message)
 
-    logger.info(f"Sent: {message}")
+    logger.info(f"Message Sent")
     connection.close()
